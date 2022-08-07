@@ -123,6 +123,36 @@ public:
 	//Seek Behavior
 	SteeringOutput CalculateSteering(float deltaT, SteeringAgent* pAgent) override;
 };
+
+//////////////////////////////////////
+//CONTEXT STEERING
+//****
+class ContextSteering : public Seek
+{
+public:
+	ContextSteering() = default;
+	virtual ~ContextSteering() = default;
+
+	SteeringOutput CalculateSteering(float deltaT, SteeringAgent* pAgent) override;
+	
+	void SetSizeArray(int size);
+	void AddObstacle(Obstacle* obstacle) { m_pObstacles.push_back(obstacle); };
+
+private:
+	bool IsArrowIntersecting(const Elite::Vector2& origin, const Elite::Vector2& dir, Obstacle* pObstacle);
+	
+	//Switch between smooth danger handling (interpolation) or normal danger handling (ignore intrest if any danger)
+	bool m_InterpolateDangerValues = false;
+	//legnth of arrows
+	float m_LookAheadRange = 12.f;
+	size_t m_arrowCount;
+	std::vector<Obstacle*> m_pObstacles{};
+	std::vector<Elite::Vector2> m_Directions;
+	std::vector<float> m_Interests;
+	std::vector<float> m_Dangers;
+	std::vector<Elite::Color> m_Colors;
+};
+
 #endif
 
 

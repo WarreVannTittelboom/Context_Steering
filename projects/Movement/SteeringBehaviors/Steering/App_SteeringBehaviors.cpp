@@ -76,7 +76,7 @@ App_SteeringBehaviors::ImGui_Agent App_SteeringBehaviors::AddAgent(BehaviorTypes
 //Functions
 void App_SteeringBehaviors::Start()
 {
-	AddAgent(BehaviorTypes::Seek, -1);
+	AddAgent(BehaviorTypes::Context, -1);
 	m_AgentVec[0].pAgent->SetRenderBehavior(true);
 
 
@@ -159,9 +159,6 @@ void App_SteeringBehaviors::Update(float deltaTime)
 		if (ImGui::Button("Add Agent"))
 			AddAgent(BehaviorTypes::Seek);
 
-		if (ImGui::Button("Add Obstacle"))
-			AddObstacle();
-
 		ImGui::Spacing();
 		ImGui::Separator();
 
@@ -172,6 +169,9 @@ void App_SteeringBehaviors::Update(float deltaTime)
 			snprintf(headerName, sizeof(headerName), "ACTOR %i", i);
 
 			auto& a = m_AgentVec[i];
+
+			if (ImGui::Button("Add Obstacle"))
+				AddObstacle(a);
 
 			if (ImGui::CollapsingHeader(headerName))
 			{
@@ -202,7 +202,7 @@ void App_SteeringBehaviors::Update(float deltaTime)
 				ImGui::Text(" Behavior: ");
 				ImGui::SameLine();
 				ImGui::PushItemWidth(100);
-				if (ImGui::Combo("", &a.SelectedBehavior, "Seek\0Flee\0Arrive\0Face\0Wander\0Evade\0Pursuit", 8))
+				if (ImGui::Combo("", &a.SelectedBehavior, "Seek\0Context\0Flee\0Arrive\0Face\0Wander\0Evade\0Pursuit", 8))
 				{
 					behaviourModified = true;
 				}
@@ -339,6 +339,18 @@ void App_SteeringBehaviors::SetAgentBehavior(ImGui_Agent& a)
 	case BehaviorTypes::Evade:
 		a.pBehavior = new Evade();
 		break;
+	case BehaviorTypes::Context:
+		m_pContextBehavior = new ContextSteering();
+		
+		m_pContextBehavior->SetSizeArray(a.arrowCount);
+
+		for (size_t i = 0; i < m_Obstacles.size(); ++i )
+		{
+			m_pContextBehavior->AddObstacle(m_Obstacles[i]);
+		}
+		
+		a.pBehavior = m_pContextBehavior;
+		break;
 	
 	}
 
@@ -380,14 +392,25 @@ void App_SteeringBehaviors::UpdateTargetLabel()
 	}
 }
 
-void App_SteeringBehaviors::AddObstacle()
+void App_SteeringBehaviors::AddObstacle(ImGui_Agent& a)
 {
 	auto radius = randomFloat(m_MinObstacleRadius, m_MaxObstacleRadius);
 	bool positionFound = false;
 	auto pos = GetRandomObstaclePosition(radius, positionFound);
 
 	if (positionFound)
-		m_Obstacles.push_back(new Obstacle(pos, radius));
+	{
+		auto pObstacle = (new Obstacle(pos, radius));
+		m_Obstacles.push_back(pObstacle);
+		
+		if (a.SelectedBehavior == int(BehaviorTypes::Context))
+		{
+			m_pContextBehavior->AddObstacle(pObstacle);
+		}
+			
+	}
+
+	
 }
 
 Elite::Vector2 App_SteeringBehaviors::GetRandomObstaclePosition(float newRadius, bool& positionFound)

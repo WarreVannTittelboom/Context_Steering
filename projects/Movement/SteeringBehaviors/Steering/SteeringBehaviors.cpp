@@ -164,3 +164,127 @@ SteeringOutput Evade::CalculateSteering(float deltaT, SteeringAgent* pAgent)
 	}
 	return steering;
 }
+
+// CONTEXT STEERING
+//****
+SteeringOutput ContextSteering::CalculateSteering(float deltaT, SteeringAgent* pAgent)
+{
+
+	Elite::Vector2 agentPos = pAgent->GetPosition();
+	float agentDir = pAgent->GetOrientation();
+	float maxLinSpeed = pAgent->GetMaxLinearSpeed();
+	
+
+	for (size_t i = 0; i < m_arrowCount; ++i)
+	{
+		float angle = (((2 * (float)M_PI) / m_arrowCount) * (int)i);
+		Elite::Vector2 rightVector{ 1,0 };
+		Elite::Vector2 currVector{};
+
+		currVector.x = (rightVector.x * cos(agentDir + angle)) - (rightVector.y * sin(agentDir + angle));
+		currVector.y = (rightVector.x * sin(agentDir + angle)) - (rightVector.y * cos(agentDir + angle));
+		currVector = currVector.GetNormalized();
+		currVector *= m_LookAheadRange;
+		m_Directions[i] = currVector;
+	}
+
+
+
+	Elite::Vector2 toTarget{Elite::Vector2 {m_Target.Position - pAgent->GetPosition()}.GetNormalized()};
+
+	for (size_t i = 0; i < m_arrowCount; i++)
+	{
+		float dotProdcut = m_Directions[i].GetNormalized().Dot(toTarget);
+		if (0.f >= dotProdcut)
+		{
+			m_Interests[i] = 0;
+		}
+		else
+		{
+			m_Interests[i] = dotProdcut;
+		}
+	}
+
+	for (size_t i = 0; i < m_arrowCount; i++)
+	{
+		bool isActive = false;
+		
+		for (size_t j = 0; j < m_pObstacles.size(); j++)
+		{
+			if (IsArrowIntersecting(agentPos, m_Directions[i], m_pObstacles[j]))
+			{
+				if (m_InterpolateDangerValues)
+				{
+					float distance = Elite::Distance(agentPos, m_pObstacles[j]->GetCenter());
+					distance -= m_pObstacles[j]->GetRadius();
+					
+					m_Dangers[i] = (m_LookAheadRange - distance) / m_LookAheadRange;
+				}
+				else
+				{
+					m_Dangers[i] = 1;
+				}
+				m_Colors[i] = Elite::Color(m_Dangers[i], 1 - m_Dangers[i], 0);
+				isActive = true;
+			}
+			else if (!isActive)
+			{
+				m_Colors[i] = Elite::Color(0, 1, 0);
+				m_Dangers[i] = 0.f;
+			}
+		}
+
+	}
+	if (pAgent->CanRenderBehavior())
+	{
+		for (size_t i = 0; i < m_arrowCount; i++)
+		{
+			DEBUGRENDERER2D->DrawDirection(pAgent->GetPosition(), m_Directions[i] * m_Interests[i], (m_Directions[i] * m_Interests[i]).Magnitude(), m_Colors[i]);
+		}
+	}
+
+	
+	for (size_t i = 0; i < m_arrowCount; i++)
+	{
+		m_Interests[i] -= m_Dangers[i];
+	}
+
+	
+	Elite::Vector2 finalDir{};
+	for (size_t i = 0; i < m_arrowCount; i++)
+	{
+		finalDir += m_Directions[i] * m_Interests[i];
+	}
+	finalDir = finalDir.GetNormalized();
+	finalDir *= maxLinSpeed;
+	
+	
+	auto output = SteeringOutput();
+	output.LinearVelocity = finalDir;
+	output.AngularVelocity = 0.0f;
+	output.IsValid = true;
+	return output;
+}
+
+bool ContextSteering::IsArrowIntersecting(const Elite::Vector2& origin, const Elite::Vector2& dir, Obstacle* pObstacle)
+{
+	Elite::Vector2 closestPoint = ProjectOnLineSegment(origin, origin + dir, pObstacle->GetCenter());
+	float distanceToCenter = Elite::Distance(pObstacle->GetCenter(), closestPoint);
+
+	if (pObstacle->GetRadius() >= distanceToCenter)
+	{
+		return true;
+	}
+	return false;
+}
+
+void ContextSteering::SetSizeArray(int size)
+{
+	m_arrowCount = size;
+	
+	m_Directions.resize(m_arrowCount);
+	m_Interests.resize(m_arrowCount);
+	m_Dangers.resize(m_arrowCount);
+	m_Colors.resize(m_arrowCount);
+}
+

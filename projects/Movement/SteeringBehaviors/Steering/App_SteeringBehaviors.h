@@ -28,6 +28,7 @@ private:
 	enum class BehaviorTypes :int
 	{
 		Seek,
+		Context,
 		Flee,
 		Arrive,
 		Face,
@@ -45,6 +46,8 @@ private:
 		ISteeringBehavior* pBehavior = nullptr;
 		int SelectedBehavior = int(BehaviorTypes::Wander);
 		int SelectedTarget = -1;
+		// For Context Steering
+		int arrowCount = 64; 
 	};
 
 	//Datamembers
@@ -56,6 +59,7 @@ private:
 	bool m_TrimWorld = true;
 	float m_TrimWorldSize = 50.f;
 	int m_AgentToRemove = -1;
+	ContextSteering* m_pContextBehavior = nullptr;
 
 	std::vector<Obstacle*> m_Obstacles;
 	const float m_MaxObstacleRadius = 5.f;
@@ -69,7 +73,7 @@ private:
 	void UpdateTarget(ImGui_Agent& a);
 	void UpdateTargetLabel();
 
-	void AddObstacle();
+	void AddObstacle(ImGui_Agent& a);
 	Elite::Vector2 GetRandomObstaclePosition(float obstacleRadius, bool& positionFound);
 
 	//C++ make the class non-copyable
